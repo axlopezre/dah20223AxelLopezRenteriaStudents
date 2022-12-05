@@ -1,5 +1,9 @@
 import { Injectable } from '@angular/core';
 import { Student } from "../models/student";
+import { map } from 'rxjs/operators';
+import { AngularFirestore } from '@angular/fire/compat/firestore';
+import { Observable } from 'rxjs';
+
 
 @Injectable({
   providedIn: 'root'
@@ -8,7 +12,7 @@ export class StudentService {
 
   private students: Student[];
 
-  constructor() {
+  constructor(private firestore: AngularFirestore) {
     this.students = [
       {
         controlnumber: "02400391",
@@ -43,12 +47,22 @@ export class StudentService {
     ];
   }
 
-  public getStudents(): Student[]{
-    return this.students;
+  public getStudents(): Observable<Student[]>{
+    return this.firestore.collection('students').snapshotChanges().pipe(
+      map(actions => {
+        return actions.map(a => {
+          console.log(a);
+          const data = a.payload.doc.data() as Student;
+          console.log(data);
+          const id = a.payload.doc.id;
+          return { id, ...data };
+        });
+      })
+    );
   }
 
-  public removeStudent(pos: number): Student[]{
-    this.students.splice(pos, 1);
+  public removeStudent(id: string){
+    this.firestore.collection('students').doc(id).delete();
     return this.students;
   }
 
@@ -58,10 +72,17 @@ export class StudentService {
     });
     return item;
   }
-
-  public newStudent(student: Student): Student[] {
-    this.students.push(student);
-    return this.students;
+  public updateStudent(id: string, student: Student){
+      this.firestore.collection('students').doc(id).update(student);
+      return this.students;
   }
 
+  public getStudentById(id: string) {
+    let result = this.firestore.collection('students').doc(id).valueChanges();
+    return result;
+  }
+
+  public newStudent(student: Student) {
+    this.firestore.collection('students').add(student);
+  }
 }
